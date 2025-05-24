@@ -220,7 +220,7 @@ class WebScraperAgent:
 def main():
     try:
         # Exemple d'utilisation
-        url = "https://www.algerietelecom.dz"  # Remplacez par l'URL de votre choix
+        url = "https://www.exemple.com"  # Remplacez par l'URL de votre choix
         agent = WebScraperAgent(url, vector_store_type="faiss", max_depth=2)
         vector_store = agent.process_website()
         
