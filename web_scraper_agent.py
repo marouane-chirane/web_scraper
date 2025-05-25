@@ -72,6 +72,24 @@ class WebScraperAgent:
             "scraping_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
+    def save_page_data(self, url: str, data: dict):
+        """Sauvegarde les données d'une page dans un fichier JSON séparé"""
+        if not data:
+            return
+            
+        # Créer un nom de fichier basé sur l'URL
+        filename = url.replace('https://', '').replace('http://', '').replace('/', '_').replace('.', '_')
+        filename = f"scraping_results_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        # Créer le dossier results s'il n'existe pas
+        os.makedirs('results', exist_ok=True)
+        
+        # Sauvegarder dans le dossier results
+        filepath = os.path.join('results', filename)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"💾 Données sauvegardées dans: {filepath}")
+
     def scrape_page(self, url: str, depth: int = 0) -> dict:
         """Scrape une page spécifique avec gestion des erreurs et retries"""
         if depth > self.max_depth or url in self.visited_urls:
@@ -89,6 +107,9 @@ class WebScraperAgent:
                 
                 data = self.extract_content(soup, url)
                 self.all_data[url] = data
+                
+                # Sauvegarder les données de cette page dans un fichier JSON séparé
+                self.save_page_data(url, data)
                 
                 if depth < self.max_depth:
                     # Récupérer tous les liens de la page
@@ -220,7 +241,7 @@ class WebScraperAgent:
 def main():
     try:
         # Exemple d'utilisation
-        url = "https://www.exemple.com"  # Remplacez par l'URL de votre choix
+        url = "https://www.algerietelecom.dz/fr/"  # Remplacez par l'URL de votre choix
         agent = WebScraperAgent(url, vector_store_type="faiss", max_depth=2)
         vector_store = agent.process_website()
         

@@ -6,3 +6,4 @@ chromadb
 python-dotenv
 tiktoken
 sentence-transformers
+langchain_community
