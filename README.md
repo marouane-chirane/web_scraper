@@ -1,79 +1,147 @@
-# Web Scraping Agent with LangChain
+# Web Scraping Agent with LangChain - Version Améliorée
 
-A powerful web scraping agent that uses LangChain to crawl websites, extract structured content, and create a vector database for semantic search. This tool is particularly useful for creating knowledge bases from websites and performing intelligent searches on the scraped content.
+Un agent de web scraping puissant qui utilise LangChain pour crawler des sites web, extraire du contenu structuré et créer une base de données vectorielle pour la recherche sémantique. Cette version améliorée inclut un support spécialisé pour les sites d'emploi comme jobup.ch.
 
-## Features
+## 🚀 Nouvelles Fonctionnalités
 
-- **Recursive Web Crawling**: Automatically follows and scrapes linked pages up to a specified depth
-- **Structured Content Extraction**:
-  - Headers (H1, H2, H3)
-  - Paragraphs
-  - Lists (ordered and unordered)
-  - Tables
-  - Images with alt text
-  - Links
+### **Scraping d'Offres d'Emploi (jobup.ch)**
+- **Extraction spécialisée** des offres d'emploi avec pagination automatique
+- **Support Selenium** pour les sites dynamiques
+- **Extraction de données structurées** :
+  - Titre du poste
+  - Nom de l'entreprise
+  - Localisation
+  - Type de contrat
+  - Taux d'activité
+  - Salaire
+  - Date de publication
+- **Gestion intelligente de la pagination** pour récupérer toutes les offres
+- **Sauvegarde automatique** en JSON avec statistiques détaillées
+
+### **Fonctionnalités Générales**
+- **Web Crawling Récursif** : Suit automatiquement et scrape les pages liées jusqu'à une profondeur spécifiée
+- **Extraction de Contenu Structuré** :
+  - En-têtes (H1, H2, H3)
+  - Paragraphes
+  - Listes (ordonnées et non ordonnées)
+  - Tableaux
+  - Images avec texte alternatif
+  - Liens
   - Meta descriptions
-- **Vector Database Integration**:
-  - Support for FAISS and Chroma vector stores
-  - Semantic search capabilities
-  - Efficient text chunking
-- **Smart Content Processing**:
-  - Automatic content chunking
-  - Text normalization
-  - Duplicate prevention
-  - URL validation and normalization
-- **Robust Error Handling**:
-  - Automatic retries for failed requests
+- **Intégration Base de Données Vectorielle** :
+  - Support pour FAISS et Chroma vector stores
+  - Capacités de recherche sémantique
+  - Chunking de texte efficace
+- **Traitement Intelligent du Contenu** :
+  - Chunking automatique du contenu
+  - Normalisation du texte
+  - Prévention des doublons
+  - Validation et normalisation des URLs
+- **Gestion Robuste des Erreurs** :
+  - Retry automatique pour les requêtes échouées
   - Rate limiting
-  - Comprehensive error reporting
-- **Data Export**:
-  - JSON export of all scraped content
-  - Structured data format
-  - Easy integration with other tools
+  - Rapports d'erreur complets
+- **Export de Données** :
+  - Export JSON de tout le contenu scrapé
+  - Format de données structuré
+  - Intégration facile avec d'autres outils
 
-## Installation
+## 📦 Installation
 
-1. Clone this repository:
+1. Cloner le repository:
 ```bash
 git clone <repository-url>
 cd web-scraper
 ```
 
-2. Install dependencies:
+2. Installer les dépendances:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+3. Installer Chrome/Chromium (pour Selenium):
+```bash
+# Ubuntu/Debian
+sudo apt-get install chromium-browser
 
-1. Basic usage:
+# macOS
+brew install --cask google-chrome
+
+# Windows: Télécharger depuis https://www.google.com/chrome/
+```
+
+## 🚀 Utilisation
+
+### **1. Scraping d'Offres d'Emploi (jobup.ch)**
+
+#### Utilisation Simple:
+```python
+from web_scraper_agent import scrape_jobup_developer_offers
+
+# Scraper toutes les offres de développeur
+offers, vector_store = scrape_jobup_developer_offers()
+
+# Scraper avec limitation de pages
+offers, vector_store = scrape_jobup_developer_offers(max_pages=10)
+```
+
+#### Utilisation Avancée:
 ```python
 from web_scraper_agent import WebScraperAgent
 
-# Initialize the agent
+# Configuration pour jobup.ch
 agent = WebScraperAgent(
-    url="https://example.com",
-    vector_store_type="faiss",  # or "chroma"
-    max_depth=2  # depth of crawling
+    url="https://www.jobup.ch/fr/emplois/?term=developer",
+    vector_store_type="faiss",
+    use_selenium=True,  # Pour les sites dynamiques
+    headless=True,      # Mode headless
+    max_pages=20        # Limiter le nombre de pages
 )
 
-# Start scraping and create vector store
+# Lancer le scraping
 vector_store = agent.process_website()
 
-# Perform semantic search
-results = vector_store.similarity_search("Your question here")
+# Accéder aux offres scrapées
+offers = agent.job_offers
+print(f"Nombre d'offres trouvées: {len(offers)}")
 ```
 
-2. Customize scraping depth:
+#### Script en Ligne de Commande:
+```bash
+# Scraper avec paramètres par défaut
+python scrape_jobup.py
+
+# Scraper avec options personnalisées
+python scrape_jobup.py --pages 10 --term "python" --output "offres_python.json"
+
+# Scraper sans Selenium (mode requests uniquement)
+python scrape_jobup.py --no-selenium --pages 5
+```
+
+### **2. Scraping Standard (Autres Sites)**
+
 ```python
-# Scrape only the main page
-agent = WebScraperAgent(url="https://example.com", max_depth=1)
+from web_scraper_agent import WebScraperAgent
 
-# Scrape main page and linked pages
-agent = WebScraperAgent(url="https://example.com", max_depth=2)
+# Scraper un site standard
+agent = WebScraperAgent(
+    url="https://example.com",
+    vector_store_type="faiss",
+    max_depth=2
+)
 
-# Deep crawling
-agent = WebScraperAgent(url="https://example.com", max_depth=3)
+# Lancer le scraping
+vector_store = agent.process_website()
+
+# Recherche sémantique
+results = vector_store.similarity_search("Votre question ici")
+```
+
+### **3. Test du Scraper**
+
+```bash
+# Tester le scraper jobup.ch
+python test_jobup.py
 ```
 
 ## Configuration

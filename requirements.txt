@@ -6,3 +6,6 @@ chromadb
 python-dotenv
 tiktoken
 sentence-transformers
+selenium
+webdriver-manager
+lxml
