@@ -34,7 +34,8 @@ class WebScraperAgent:
                  use_selenium: bool = False, headless: bool = True, max_pages: int = None):
         self.base_url = url
         self.vector_store_type = vector_store_type
-        self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        # Utilisation du meilleur modèle d'embedding multilingue
+        self.embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -123,9 +124,13 @@ class WebScraperAgent:
             'contract_type': '',
             'activity_rate': '',
             'description': '',
+            'full_description': '',
             'requirements': '',
             'benefits': '',
             'salary': '',
+            'mission': '',
+            'profile': '',
+            'company_info': '',
             'scraping_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'source_page': page_url
         }
@@ -177,10 +182,18 @@ class WebScraperAgent:
                 if salary_match:
                     job_data['salary'] = salary_match.group(0).strip()
                 
-                # Chercher un lien vers l'offre
-                link_elem = job_element.find('a', href=True)
-                if link_elem:
-                    job_data['url'] = self.normalize_url(link_elem['href'])
+                # Chercher un lien vers l'offre dans les parents
+                link_elem = None
+                parent = job_element.parent
+                while parent and parent.name != 'body':
+                    link_elem = parent.find('a', href=True)
+                    if link_elem:
+                        href = link_elem['href']
+                        # Vérifier que c'est un lien vers une offre détaillée
+                        if '/emplois/detail/' in href:
+                            job_data['url'] = self.normalize_url(href)
+                            break
+                    parent = parent.parent
                 
             else:
                 # Mode standard pour autres sites
@@ -237,6 +250,98 @@ class WebScraperAgent:
         
         return job_data
 
+    def scrape_job_detail(self, job_url: str) -> Dict:
+        """Scrape le contenu détaillé d'une offre d'emploi"""
+        detail_data = {
+            'full_description': '',
+            'mission': '',
+            'profile': '',
+            'benefits': '',
+            'company_info': '',
+            'requirements': ''
+        }
+        
+        try:
+            if self.use_selenium and self.driver:
+                self.driver.get(job_url)
+                time.sleep(3)  # Attendre le chargement
+                soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+            else:
+                response = requests.get(job_url, headers=self.headers, timeout=15)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extraire le contenu principal
+            main_content = soup.find('main') or soup.find('div', class_=lambda x: x and any(word in str(x).lower() for word in ['content', 'main', 'job', 'offer']))
+            
+            if main_content:
+                full_text = main_content.get_text(separator='\n', strip=True)
+                detail_data['full_description'] = full_text
+                
+                # Essayer d'extraire des sections spécifiques avec des patterns plus précis
+                lines = full_text.split('\n')
+                
+                # Mission/Responsabilités
+                mission_keywords = ['your responsibilities', 'mission', 'aufgabe', 'tâche', 'responsabilité', 'responsibilities']
+                for i, line in enumerate(lines):
+                    if any(keyword in line.lower() for keyword in mission_keywords):
+                        section_content = []
+                        for j in range(i, min(i + 15, len(lines))):
+                            if lines[j].strip() and not any(stop_word in lines[j].lower() for stop_word in ['your profile', 'profil', 'qualification', 'exigence']):
+                                section_content.append(lines[j].strip())
+                            elif lines[j].strip() == '' and section_content:
+                                break
+                        if section_content:
+                            detail_data['mission'] = '\n'.join(section_content)
+                            break
+                
+                # Profil/Qualifications
+                profile_keywords = ['your profile', 'profil', 'qualification', 'exigence', 'requis', 'requirements', 'qualifications']
+                for i, line in enumerate(lines):
+                    if any(keyword in line.lower() for keyword in profile_keywords):
+                        section_content = []
+                        for j in range(i, min(i + 15, len(lines))):
+                            if lines[j].strip() and not any(stop_word in lines[j].lower() for stop_word in ['we offer', 'wir bieten', 'nous offrons', 'avantage']):
+                                section_content.append(lines[j].strip())
+                            elif lines[j].strip() == '' and section_content:
+                                break
+                        if section_content:
+                            detail_data['profile'] = '\n'.join(section_content)
+                            break
+                
+                # Avantages/Offres
+                benefits_keywords = ['we offer', 'wir bieten', 'nous offrons', 'avantage', 'bénéfice', 'benefits', 'perks']
+                for i, line in enumerate(lines):
+                    if any(keyword in line.lower() for keyword in benefits_keywords):
+                        section_content = []
+                        for j in range(i, min(i + 15, len(lines))):
+                            if lines[j].strip() and not any(stop_word in lines[j].lower() for stop_word in ['contact', 'à propos', 'about', 'company']):
+                                section_content.append(lines[j].strip())
+                            elif lines[j].strip() == '' and section_content:
+                                break
+                        if section_content:
+                            detail_data['benefits'] = '\n'.join(section_content)
+                            break
+                
+                # Informations entreprise
+                company_keywords = ['à propos', 'about', 'company', 'entreprise', 'über uns', 'bobst', 'btg']
+                for i, line in enumerate(lines):
+                    if any(keyword in line.lower() for keyword in company_keywords):
+                        section_content = []
+                        for j in range(i, min(i + 10, len(lines))):
+                            if lines[j].strip():
+                                section_content.append(lines[j].strip())
+                            elif lines[j].strip() == '' and section_content:
+                                break
+                        if section_content:
+                            detail_data['company_info'] = '\n'.join(section_content)
+                            break
+            
+        except Exception as e:
+            logger.warning(f"Erreur lors du scraping détaillé de {job_url}: {e}")
+        
+        return detail_data
+
     def scrape_jobup_page(self, url: str) -> List[Dict]:
         """Scrape une page de jobup.ch pour extraire les offres d'emploi"""
         offers = []
@@ -289,6 +394,13 @@ class WebScraperAgent:
             for job_element in job_elements:
                 job_data = self.extract_job_offer(job_element, url)
                 if job_data['title']:  # Seulement si on a au moins un titre
+                    # Si on a une URL vers l'offre détaillée, scraper le contenu complet
+                    if job_data['url'] and self.is_jobup:
+                        logger.info(f"Scraping détaillé de: {job_data['url']}")
+                        detail_data = self.scrape_job_detail(job_data['url'])
+                        job_data.update(detail_data)
+                        time.sleep(1)  # Délai entre les requêtes détaillées
+                    
                     offers.append(job_data)
             
             logger.info(f"Extrait {len(offers)} offres de la page {url}")
